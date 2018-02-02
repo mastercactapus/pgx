@@ -163,7 +163,15 @@ func encodePreparedStatementArgument(ci *pgtype.ConnInfo, buf []byte, oid pgtype
 
 		sp := len(buf)
 		buf = pgio.AppendInt32(buf, -1)
-		argBuf, err := value.(pgtype.BinaryEncoder).EncodeBinary(ci, buf)
+		var argBuf []byte
+		if enc, ok := value.(pgtype.BinaryEncoder); ok {
+			argBuf, err = enc.EncodeBinary(ci, buf)
+		} else if enc, ok := value.(pgtype.TextEncoder); ok {
+			argBuf, err = enc.EncodeText(ci, buf)
+		} else {
+			return nil, SerializationError(fmt.Sprintf("Cannot encode %T - %T must implement driver.Valuer, pgtype.BinaryEncoder, pgtype.TextEncoder, or be a native type", arg, arg))
+		}
+
 		if err != nil {
 			return nil, err
 		}
